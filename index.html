@@ -88,10 +88,11 @@ struct inode {
     <p>However, this is not what is observed. Why isn't this effective? </p>
     <p>There is a race condition in this code. If someone runs the command <code>ln foo bar</code> between the commands <code>ls</code> and <code>rm</code>, it is possible to obtain a different value of the link count. Although the directory entry is collapsed and the link count is decremented initially, the file still exists on disk, so running <code>ln foo bar</code> can result in a different final value of the link count.</p>
     <p>Consider another way of obtaining the file: </p>
-	<pre>$ touch secret
-	      $ chmod 600 secret
-	      $ ls -l rw----------
-		rw--------------0
+	<pre>
+$ touch secret
+$ chmod 600 secret
+$ ls -l rw----------
+  rw--------------0
         </pre>
 	While you may consider this file to be secure, in reality, this too is not sufficiently secure. This is because in Linux and other systems, file permissions are checked at open time; additionally, if a file doesn't have a name, you can reclaim the name of a former file. The name of the file isn't reclaimed only if some process has the file open. For example, what would happen if someone else runs 
 	<code>
@@ -102,12 +103,12 @@ before <code>rm foo</code>? This would fail to be secure in our previous case, t
 <h2>Shred</h2>
     <p>Consider the following commands:
 	<pre>
-	shred file
-	open file
-	stat get size
-	//overwrites with zeroes
-	close file
-	unlink file
+shred file
+open file
+stat get size
+//overwrites with zeroes
+close file
+unlink file
 	</pre>
        The command shred overwrites the file with zeroes. If someone opens the file during the process above, they will only read zeroes. What could be the problem with this method?</p> 
 
