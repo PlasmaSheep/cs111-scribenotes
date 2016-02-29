@@ -77,10 +77,41 @@
     <p><strong>Files:</strong> Inodes are associated with blocks on the disk that contain data. These regions do not have names, but they do have numbers, owners, types, and so on. Files are of course not of fixed size, and can grow and shrink as needed. No hierarchy exists at this level.</p>
     <p><strong>Files and directories:</strong> Directory entries give names to files. Some of these files contain pointers to other files, making them what we would call directories. In this level of abstraction, the filesystem becomes tree-shaped rather than flat.</p>
     <p><strong>Symlinks:</strong> In this level, we allow files to link to other places on the filesystem tree. So, the tree is no longer truly a tree, since there can be links from branch to branch. In some filesystems, there can even be loops in the file system graph.</p>
+    
     <h2>Secure removal of files</h2>
-    <p>Unfortunately, if we want to completely obliterate a file, we can't simply call <code>unlink("foo")</code>. This is because all <code>unlink</code> does is remove the file's directory entry and allow its blocks to be reused, but until they are overwritten the file still exists on disk.</p>
+    <p>Unfortunately, if we want to completely obliterate a file, we can't simply call <code>unlink("foo")</code>. This is because all <code>unlink</code> does is remove the files directory entry and allow its blocks to be reused, but until they are overwritten the file still exists on disk.</p>
     <p>This method is secure on the highest level of file system abstraction assuming there are no hard links remaining to the file. If there are hard links, then this file is not even removed from the file tree and can be easily accessed. If not, it must be accessed by subtler means.</p>
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <p>Let us say that the link count is zero, and assume you have only used standard system calls to remove files. Attempt to remove the file <code> ls -l foo </code> <code>rm foo</code> After running the first <code>ls</code> command, the observed link count is one. From the second command we may assume that we have effectively removed the file <code>foo</code>. </p>
+    <p>However, this is not what is observed. Why isn't this effective? </p>
+    <p>There is a race condition in this code. If someone runs the command <code>ln foo bar</code> between the commands <code>ls</code> and <code>rm</code>, it is possible to obtain a different value of the link count. Although the directory entry is collapsed and the link count is decremented initially, the file still exists on disk, so running <code>ln foo bar</code> can result in a different final value of the link count.</p>
+    <p>Consider another way of obtaining the file: </p>
+	<pre>$ touch secret
+	      $ chmod 600 secret
+	      $ ls -l rw----------
+		rw--------------0
+        </pre>
+	While you may consider this file to be secure, in reality, this too is not sufficiently secure. This is because in Linux and other systems, file permissions are checked at open time; additionally, if a file doesn't have a name, you can reclaim the name of a former file. The name of the file isn't reclaimed only if some process has the file open. For example, what would happen if someone else runs 
+	<code>
+	cat &lt; foo
+	</code>
+before <code>rm foo</code>? This would fail to be secure in our previous case, therefore this method does not work.</p>
+    
+<h2>Shred</h2>
+    <p>Consider the following commands:
+	<pre>
+	shred file
+	open file
+	stat get size
+	//overwrites with zeroes
+	close file
+	unlink file
+	</pre>
+       The command shred overwrites the file with zeroes. If someone opens the file during the process above, they will only read zeroes. What could be the problem with this method?</p> 
+
+    <h3>How root can defeat shred</h3>
+	<p>If you have root access, you can grab arbitrary sectors off the disk and read them. Consider <code> /dev/rdsk/00</code> Can this be used to recover shredded data by some means? If you open <code>/dev/dsk/00</code> in rw, you can make arbitrary changes. Additionally, when we overwrite with zeroes, we make the assumption that the zeroes are written where old data used to exist. In the middle of shredding, the file system may decide to move the block where I/O is happening(for example, in order to write closer to the disk head for increased efficiency), which can be likened to on the fly defragmentation of sorts. Another problem with overwriting with zeroes is that writing zeros over disk data is not guaranteed. For example, some sectors may be bad, and as a consequence the OS directs them to the functioning replacement sectors. However, the bad sectors may contain recoverable information that should have been overwritten in the ideal situation. In addition, as the write heads do not always follow the same path on the disk head, the disk may not be fully overwritten and echos that remain after overwriting may leave the possibility for recovery open with advanced equipment. Therefore, as a precautionary measure, <code>shred</code> overwrites the data thrice in order to minimize the possibility of a potential recovery. </p>
+
+  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="js/bootstrap.min.js"></script>
