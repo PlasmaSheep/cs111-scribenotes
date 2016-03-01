@@ -98,7 +98,7 @@ $ ls -l rw----------
 	<code>
 	cat &lt; foo
 	</code>
-before <code>rm foo</code>? This would fail to be secure in our previous case, therefore this method does not work.</p>
+	<p>before <code>rm foo</code>? This would fail to be secure in our previous case, therefore this method does not work.</p>
     
 <h2>Shred</h2>
     <p>Consider the following commands:
@@ -110,7 +110,7 @@ stat get size
 close file
 unlink file
 	</pre>
-       The command shred overwrites the file with zeroes. If someone opens the file during the process above, they will only read zeroes. What could be the problem with this method?</p> 
+    <p>The command shred overwrites the file with zeroes. If someone opens the file during the process above, they will only read zeroes. What could be the problem with this method?</p> 
 
     <h3>How root can defeat shred</h3>
 	<p>If you have root access, you can grab arbitrary sectors off the disk and read them. Consider <code> /dev/rdsk/00</code> Can this be used to recover shredded data by some means? If you open <code>/dev/dsk/00</code> in rw, you can make arbitrary changes. Additionally, when we overwrite with zeroes, we make the assumption that the zeroes are written where old data used to exist. In the middle of shredding, the file system may decide to move the block where I/O is happening(for example, in order to write closer to the disk head for increased efficiency), which can be likened to on the fly defragmentation of sorts. Another problem with overwriting with zeroes is that writing zeros over disk data is not guaranteed. For example, some sectors may be bad, and as a consequence the OS directs them to the functioning replacement sectors. However, the bad sectors may contain recoverable information that should have been overwritten in the ideal situation. In addition, as the write heads do not always follow the same path on the disk head, the disk may not be fully overwritten and echos that remain after overwriting may leave the possibility for recovery open with advanced equipment. Therefore, as a precautionary measure, <code>shred</code> overwrites the data thrice in order to minimize the possibility of a potential recovery. </p>
@@ -157,7 +157,7 @@ rmdir a
 	<img src="img/FILLER.png" class="img-responsive" alt="Directory Link Cycles 2" /> <br>
 	Does this always delete directory a? No, not if something points to c. Links and cycles make it hard to know if something can be freed or not. The Linux system tries to get around that problem by keeping a link count, which equals the number of directory entries pointing to an inode. However, this does not work if there are cycles. <br>
 <img src="img/FILLER.png" class="img-responsive" alt="Directory Link Cycles 3" /> <br>
-In this scenario, the link count could go to zero, but files can still can still be accessed. Solution: Linux does not allow cycles. How does it prevent cycles? One way is that she system could dynamically check if a new link makes a cycle. However, that would make the cost of making a link expensive. A more simple solution: <code>link("a", "b")</code> is prohibited if b is a directory. </p>
+	<p>In this scenario, the link count could go to zero, but files can still can still be accessed. Solution: Linux does not allow cycles. How does it prevent cycles? One way is that she system could dynamically check if a new link makes a cycle. However, that would make the cost of making a link expensive. A more simple solution: <code>link("a", "b")</code> is prohibited if b is a directory. </p>
 
 <h2>Space Allocation for Files</h2>
 <p>How can we structure our inode to best allocate space for files? Previous file systems, like FAT don't work well with lseek because the data is too fragmented. (FAT uses a linked list of file allocations). In our file system, we want two things: <br>1. Lseek runs well <br> 2. Low fragmentation (contigious data storage not requried). </p>
