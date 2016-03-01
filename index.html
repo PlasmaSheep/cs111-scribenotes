@@ -51,7 +51,8 @@ struct direntry {
         <p>Similarly, if we want to add in a new directory entry, that's as simple as finding a directory entry with enough space on the end, changing its entry_length to be smaller, and use the new space for the new directory entry.</p>
         <h2>Inodes</h2>
         <p>So what is that inode_number field in the directory entry?</p>
-        <p>In ext3, each directory entry is associated with an inode, which possibly stands for "index node" according to <a href="https://en.wikipedia.org/wiki/Inode#Etymology">Dennis Ritchie</a>. The inode basically stores all the information for a file that doesn't depend on its name or path in the file system. Thus, inodes do not have names, only numbers. The need for this separation between location in the file system tree and information about the file itself will become apparent when we discuss linking <!-- TODO: does this ever happen -->.</p>
+        <p>In ext3, each directory entry is associated with an inode, which possibly stands for "index node" according to <a href="https://en.wikipedia.org/wiki/Inode#Etymology">Dennis Ritchie</a>. The inode basically stores all the information for a file that doesn't depend on its name or path in the file system. Thus, inodes do not have names, only numbers.</p>
+        <p> This separation of file position in the directory tree and file information is useful so that we can easily link to a file by adding another directory entry elsewhere in the tree with the same inode number as the file being linked. Making such a link is cheap and fast, much faster than it would be if one had to copy all information stored in an inode in order to link to a file.</p>
         <p>The structure of an inode is something like this:</p>
         <pre>
 struct inode {
