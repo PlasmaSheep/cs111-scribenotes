@@ -114,6 +114,20 @@ unlink file
 
     <h3>How root can defeat shred</h3>
 	<p>If you have root access, you can grab arbitrary sectors off the disk and read them. Consider <code> /dev/rdsk/00</code> Can this be used to recover shredded data by some means? If you open <code>/dev/dsk/00</code> in rw, you can make arbitrary changes. Additionally, when we overwrite with zeroes, we make the assumption that the zeroes are written where old data used to exist. In the middle of shredding, the file system may decide to move the block where I/O is happening(for example, in order to write closer to the disk head for increased efficiency), which can be likened to on the fly defragmentation of sorts. Another problem with overwriting with zeroes is that writing zeros over disk data is not guaranteed. For example, some sectors may be bad, and as a consequence the OS directs them to the functioning replacement sectors. However, the bad sectors may contain recoverable information that should have been overwritten in the ideal situation. In addition, as the write heads do not always follow the same path on the disk head, the disk may not be fully overwritten and echos that remain after overwriting may leave the possibility for recovery open with advanced equipment. Therefore, as a precautionary measure, <code>shred</code> overwrites the data thrice in order to minimize the possibility of a potential recovery. </p>
+    <h2>How to Interpret File Names</h2>
+	<h3>Namei</h3>
+	<p>Consider the following file:
+	<pre>a/b/c
+	</pre>
+	namei would traverse the name from left to right, while keeping track of where it is in the directory hierarchy. When <code>namei</code> wants to take the next step while navigating the directory hierarcy, it looks at the following chars upto the next backslash and looks for a match. In this manner, namei finds, advances and repeats this process. 
+	<p>Namei can have different flavors depending on the file flags. Consider <code>open("a/b/c/d", O_WRONLY | O_CREAT | O_EXCL)</code>. What happens in namei? We walk through the name from left to right. At the very end special things happen depending on the flag. In this case: <br><code>O_WRONLY</code> = we just need write accesss to the parent directory<br><code>O_CREAT</code> = we don't insist that the file exists<br> <code>O_EXCL</code> = we actually insist that the file not exists<br>This also holds for ther functions:<br><code>link("a", "b")</code>: b doesn't need to exist<br><code>mkdir("d")</code>: d doesn't need to exist</p>
+	<p>
+	However, where does namei start looking when it is given a file? In a file system, one can start at root. For example, <code>cat a/b/c</code> would interpret relative to the working directory. In order to differentiate, <code>cat /etc/password</code> would mean root, while <code>cat etc/password</code> would be relative to the working directory. 
+	</p>
+	<p>
+	Due to this, if one were to run <code>cat a/b</code> on two different terminal windows, it is possible that the output of each command can be different, as one may be working in different directories in each terminal session. Therefore, the working directory is not a global variable, but is instead a local variable of the current process.
+	When namei is called, it first looks at the working directory entry. If we want to change the value, we use <code>chdir("X")</code>, apply namei to X and figure out the inode value. 
+	</p>
     <h2>Chroot</h2>
     <h3>Chrooted Jail</h3>
 	<p>What would happen if you ran this code?</p>
@@ -131,9 +145,6 @@ $ln /dev/tty subdir/dev/tty
 $ln /dev/disk/00 subdir/dev/disk/00
 	</pre>
 	<p>The problem is that if you are root inside this jail, you can open /dev/disk/00 and make arbitrary changes to the the file system. You have direct read and write control of the file system, which means you can access any file. This results from a mistake on the user's part.</p>
-
-<h2>Namei</h2>
-	<p>Namei can have different flavors depending on the file flags. Consider <code>open("a/b/c/d", O_WRONLY | O_CREAT | O_EXCL)</code>. What happens in namei? We walk through the name from left to right. At the very end special things happen depending on the flag. In this case: <br><code>O_WRONLY</code> = we just need write accesss to the parent directory<br><code>O_CREAT</code> = we don't insist that the file exists<br> <code>O_EXCL</code> = we actually insist that the file not exists<br>This also holds for ther functions:<br><code>link("a", "b")</code>: b doesn't need to exist<br><code>mkdir("d")</code>: d doesn't need to exist</p>
 
 <h2>Cycles</h2>
 	<p>What issues can arise with the command <code>link("a", "b")</code>?<br>Main problem: You can create CYCLES. Consider the following code that produces the files, directories, and links seen in Figure XX:</p>
