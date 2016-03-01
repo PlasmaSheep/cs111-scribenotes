@@ -118,8 +118,8 @@ unlink file
     <h3>Chrooted Jail</h3>
 	<p>What would happen if you ran this code?</p>
     	<pre>
-    		chroot("subdir");
-    		execl("/bin/emacs");
+chroot("subdir");
+execl("/bin/emacs");
     	</pre>
     	<p>Remember that emacs can only see the files in subdir. This setup, where a program is confined certain part of the filesystem, is called a chrooted jail. Why would you create one? One benefit is that one can confine a user to a single space. But it is very hard to escape from a chrooted jail.</p>
     	<p> Consider the command <code>abc/.</code>. What happens? Nothing. You go back to your orignial directory abc. What about the command <code>a/b/..</code>? The command <code>/..</code> goes to the parent directory. But what if we in a chrooted jail and b is the root? By convention, the parent directory of the root is the root, so using <code>/..</code> in the root directory would just bring you back to the root. Similiarly, after using <code>chroot</code>, using the command <code>chroot("/..")</code> would have no effect.</p>
@@ -132,39 +132,37 @@ $ln /dev/disk/00 subdir/dev/disk/00
 	<p>The problem is that if you are root inside this jail, you can open /dev/disk/00 and make arbitrary changes to the the file system. You have direct read and write control of the file system, which means you can access any file. This results from a mistake on the user's part.</p>
 
 <h2>Namei</h2>
-	<p>Namei can have different flavors depending on the file flags. Consider <code>open("a/b/c/d", O_WRONLY | O_CREAT | O_EXCL);</code>. What happens in namei? We walk through the name from left to right. At the very end special things happen depending on the flag. In this case: <br><code>O_WRONLY</code> = we just need write accesss to the parent directory<br><code>O_CREAT</code> = we don't insist that the file exists<br></ <code>O_EXCL</code> = we actually insist that the file not exists<br>This also holds for ther functions:<br><code>link("a", "b")</code>: b doesn't need to exist<br><code>mkdir("d")</code>: d doesn't need to exist</p>
+	<p>Namei can have different flavors depending on the file flags. Consider <code>open("a/b/c/d", O_WRONLY | O_CREAT | O_EXCL)</code>. What happens in namei? We walk through the name from left to right. At the very end special things happen depending on the flag. In this case: <br><code>O_WRONLY</code> = we just need write accesss to the parent directory<br><code>O_CREAT</code> = we don't insist that the file exists<br> <code>O_EXCL</code> = we actually insist that the file not exists<br>This also holds for ther functions:<br><code>link("a", "b")</code>: b doesn't need to exist<br><code>mkdir("d")</code>: d doesn't need to exist</p>
 
 <h2>Cycles</h2>
 	<p>What issues can arise with the command <code>link("a", "b")</code>?<br>Main problem: You can create CYCLES. Consider the following code that produces the files, directories, and links seen in Figure XX:</p>
 	<pre>
-	mkdir a b
-	touch a/f b/g
-	ln a b/l
-	ln b a/k
+mkdir a b
+touch a/f b/g
+ln a b/l
+ln b a/k
 	</pre>
 	<img src="img/FILLER.png" class="img-responsive" alt="Directory Link Cycles" />
-	<p>If we take the algorithm for namei and apply it, it is perfectly legal to do <code>a/k/l/k/l/k/l/f</code>. Is there anything wrong with creating cycle? Why does Linux allow it? One reason is that cycles can cause <code>find</code> to loops. However, the counterargument to that problem is that <code>find</code> should fix that problem on its own. However, there is also the problem of a memory leak. Consider the following code that deletes a file:
+	<p>If we take the algorithm for namei and apply it, it is perfectly legal to do <code>a/k/l/k/l/k/l/f</code>. Is there anything wrong with creating cycle? Why does Linux allow it? One reason is that cycles can cause <code>find</code> to loop. However, the counterargument to that problem is that <code>find</code> should fix that problem on its own. However, there is also the problem of a memory leak. Consider the following code that deletes a file:
 	<pre>
-	unlink("f")
-	rmdir("k")
+unlink("f")
+rmdir("k")
 	</pre>
 We need to give storage back to file system if it is the last usage of that directory. But if we have loops something like this could occur: 
 	<pre>
-	rm a/f
-	rmdir a/k
-	rmdir a
+rm a/f
+rmdir a/k
+rmdir a
 	</pre>
-	<img src="img/FILLER.png" class="img-responsive" alt="Directory Link Cycles 2" />
+	<img src="img/FILLER.png" class="img-responsive" alt="Directory Link Cycles 2" /> <br>
 	Does this always delete directory a? No, not if something points to c. Links and cycles make it hard to know if something can be freed or not. The Linux system tries to get around that problem by keeping a link count, which equals the number of directory entries pointing to an inode. However, this does not work if there are cycles. <br>
 <img src="img/FILLER.png" class="img-responsive" alt="Directory Link Cycles 3" /> <br>
-In this scenario, the link count could go to zero, but files can still can still be accessed????? Solution: Linux does not allow cycles. How does it prevent cycles? One way is that she system could dynamically check if a new link makes a cycle. However, that would make the cost of making a link expensive. A more simple solution: <code>link("a", "b")</code> is prohibited if b is a directory. </p>
+In this scenario, the link count could go to zero, but files can still can still be accessed. Solution: Linux does not allow cycles. How does it prevent cycles? One way is that she system could dynamically check if a new link makes a cycle. However, that would make the cost of making a link expensive. A more simple solution: <code>link("a", "b")</code> is prohibited if b is a directory. </p>
 
 <h2>Space Allocation for Files</h2>
-<img src="img/FILLER.png" class="img-responsive" alt="Inode" />
-<img src="img/FILLER.png" class="img-responsive" alt="Blocks" />
-<p>Previous file systems, like FAT don't work well with lseek because the data is too fragmented. (FAT uses a linked list of file allocations). In out file system, we want two things: <br>1. Lseek runs well <br> 2. Low fragmentation (contigious data storage not requried). </p>
+<p>How can we structure our inode to best allocate space for files? Previous file systems, like FAT don't work well with lseek because the data is too fragmented. (FAT uses a linked list of file allocations). In our file system, we want two things: <br>1. Lseek runs well <br> 2. Low fragmentation (contigious data storage not requried). </p>
 
-<p>What is our method? First, let's take the first ten blocks of file and put pointer to blocks there. [picture] If we need more space, the next pointer is a pointer to an indirect block, or a block full of pointer to blocks. [picture] If we need even more space, the next pointer is a doubly indirect block, which points to a block full of pointers to indirect blocks. So what is the max file size? 2048 (direct block) + 2048*8192 + 10*8192 (indir ) ~ 16MB with doubly ~2^35 bytes more than enough. </p>
+<p>What is our method? First, let's take the first ten blocks of file data in the inode and put pointer to blocks there. <br><img src="img/FILLER.png" class="img-responsive" alt="first ten" /> <br> If we need more space, the next pointer is a pointer to an indirect block, or a block full of pointer to blocks.<br><img src="img/FILLER.png" class="img-responsive" alt="first ten" /> <br> If we need even more space, the next pointer is a doubly indirect block, which points to a block full of pointers to indirect blocks. <br><img src="img/FILLER.png" class="img-responsive" alt="first ten" /> <br>So what is the max file size? 2048 (direct block) + 2048*8192 + 10*8192 (indirect ) + 2048*2048*8192 (doubly indirect) ~ 2^35 bytes (more than enough). </p>
 
 </div>
   <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
