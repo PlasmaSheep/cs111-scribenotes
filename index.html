@@ -123,6 +123,16 @@ unlink file
     	</pre>
     	<p>Remember that emacs can only see the files in subdir. This setup, where a program is confined certain part of the filesystem, is called a chrooted jail. Why would you create one? One benefit is that one can confine a user to a single space. But it is very hard to escape from a chrooted jail.</p>
     	<p> Consider the command <code>abc/.</code>. What happens? Nothing. You go back to your orignial directory abc. What about the command <code>a/b/..</code>? The command <code>/..</code> goes to the parent directory. But what if we in a chrooted jail and b is the root? By convention, the parent directory of the root is the root, so using <code>/..</code> in the root directory would just bring you back to the root. Similiarly, after using <code>chroot</code>, using the command <code>chroot("/..")</code> would have no effect.</p>
+        <p>Let's think about a possible situation where someone could escape from a chrooted jail. Say a user needs to set up a friendly environment for emacs in a chrooted jail, and runs the following commands:</p>
+        <pre> 
+$ln /usr/bin/emacs subdir/bin/emacs
+$ln /dev/tty subdir/dev/tty
+$ln /dev/disk/00 subdir/dev/disk/00
+	</pre>
+	<p>The problem is that if you are root inside this jail, you can open /dev/disk/00 and make arbitrary changes to the the file system. You have direct read and write control of the file system, which means you can access any file. This results from a mistake on the user's part.</p>
+
+<h2>Namei</h2>
+<p>Namei can have different flavors depending on the file flags. Consider <code>open("a/b/c/d", O_WRONLY | O_CREAT | O_EXCL);</code>. What happens in namei? We walk through the name from left to right. At the very end special things happen depending on the flag. In this case: <code>O_WRONLY</code> = we just need write accesss to the parent directory, <code>O_CREAT</code> = we don't insist that the file exists, <code>O_EXCL</code> = we actually insist that the file not exists.</p>
 
 </div>
   <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
